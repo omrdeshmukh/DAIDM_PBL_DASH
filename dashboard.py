@@ -84,7 +84,7 @@ with tabs[0]:
     closure_rate = closure.groupby('Month')['Status'].apply(lambda x: (x == 'Closed').mean())
     closure_rate_df = pd.DataFrame({'Month': closure_rate.index.astype(str), 'ClosureRate': closure_rate.values})
     fig = px.line(closure_rate_df, x='Month', y='ClosureRate', markers=True, title="Incident Closure Rate (%)", labels={'Month': 'Month', 'ClosureRate': 'Closure Rate'})
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="overview_incident_closure_rate")
     st.caption("**CEO insight:** A closure rate below 85% signals backlog; consider surge IT resources.")
 
     # 3. Training Completion Over Time
@@ -94,7 +94,7 @@ with tabs[0]:
     tc_trend = training.groupby('Month')['Status'].apply(lambda x: (x=="Completed").mean())
     tc_trend_df = pd.DataFrame({'Month': tc_trend.index.astype(str), 'CompletionRate': tc_trend.values})
     fig2 = px.line(tc_trend_df, x='Month', y='CompletionRate', markers=True, title="Monthly Training Completion Rate", labels={'Month':'Month', 'CompletionRate':'Completion Rate'})
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, key="overview_training_completion")
     st.caption("**Board focus:** Monitor dips. Surge completions after incidents = 'learning after breach', not before.")
 
     # 4. Current Policy Compliance
@@ -112,7 +112,7 @@ with tabs[0]:
     merged = emp_loc_counts.merge(inc_per_loc, on='Location', how='outer').fillna(0)
     fig3 = px.scatter(merged, x='EmployeeCount', y='IncidentCount', text='Location',
                       title="Location Risk: Incidents vs Employees", labels={'x':'Employees','y':'Incidents'})
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, use_container_width=True, key="overview_location_risk")
     st.caption("**Executive view:** High incident-per-employee ratio? Remote sites often have higher risk.")
 
     # 6. Top 5 Unresolved Incidents
@@ -133,7 +133,7 @@ with tabs[0]:
     role_counts = incidents_by_role['Role'].value_counts().reset_index()
     role_counts.columns = ['Role','IncidentCount']
     fig4 = px.bar(role_counts, x='Role', y='IncidentCount', title="Incidents by Employee Role")
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig4, use_container_width=True, key="overview_incident_by_role")
     st.caption("**Executive lens:** Frontline staff typically have more incidents, but executive/C-suite incidents = existential risk.")
 
     # 8. Awareness Score Distribution (with filter)
@@ -149,7 +149,7 @@ with tabs[0]:
                             value=(min_score, max_score), step=1)
     filtered_awareness = awareness[(awareness['Score'] >= score_range[0]) & (awareness['Score'] <= score_range[1])]
     fig5 = px.histogram(filtered_awareness, x="Score", nbins=20, color="Status", title="Filtered Awareness Scores")
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, use_container_width=True, key="overview_awareness_score_hist")
     st.caption("**Actionable:** Use filter to spot gaps and tailor interventions.")
 
     # 9. Incidents By AI vs Human Detection
@@ -157,7 +157,7 @@ with tabs[0]:
     ai_vs_human = df_events['DetectedBy'].value_counts().reset_index()
     ai_vs_human.columns = ['DetectedBy','EventCount']
     fig6 = px.pie(ai_vs_human, names="DetectedBy", values="EventCount", title="Events: AI vs Human Detection")
-    st.plotly_chart(fig6, use_container_width=True)
+    st.plotly_chart(fig6, use_container_width=True, key="overview_ai_vs_human")
     st.caption("**Board focus:** Growing % of AI detection = modern, scalable cyber program.")
 
     # 10. Incidents Over Time by Severity (multi-select)
@@ -168,8 +168,9 @@ with tabs[0]:
     monthly_sev = df_sev_trend.groupby(['Month','Severity']).size().reset_index(name='Count')
     monthly_sev['Month'] = monthly_sev['Month'].astype(str) 
     fig7 = px.line(monthly_sev, x='Month', y='Count', color='Severity', markers=True, title="Incidents Over Time (by Severity)")
-    st.plotly_chart(fig7, use_container_width=True)
+    st.plotly_chart(fig7, use_container_width=True, key="overview_monthly_by_severity")
     st.caption("**Actionable:** Spikes in 'Critical' or 'High' must trigger crisis comms and action.")
+
 # ========== TAB 2: INCIDENT TRENDS & VOLUME ==========
 with tabs[1]:
     st.header("Incident Trends & Volume: Patterns and Anomalies")
