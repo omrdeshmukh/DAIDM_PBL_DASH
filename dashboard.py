@@ -146,13 +146,16 @@ with tabs[4]:
     if df_class.empty:
         st.warning("Not enough clean data for classification. Please check for missing AIResponseTime or Severity values.")
     else:
-        try:
-            model, importances = severity_classifier(df_class, X_cols, target='Severity')
-            st.bar_chart(pd.Series(importances, index=X_cols))
-        st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
-    except Exception as e:
-        st.error(f"Classification model failed: {e}")
-
+        if df_class.empty:
+            st.warning("Not enough clean data for classification. Please check for missing AIResponseTime or Severity values.")
+        else:
+            try:
+                model, importances = severity_classifier(df_class, X_cols, target='Severity')
+                st.bar_chart(pd.Series(importances, index=X_cols))
+                st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
+            except Exception as e:
+                st.error(f"Classification model failed: {e}")
+                
     st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
 
     st.subheader("Regression: Predicting Number of Incidents Caused by Employee")
