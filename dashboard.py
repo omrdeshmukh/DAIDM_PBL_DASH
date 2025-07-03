@@ -3,16 +3,40 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-from utils import load_data
+from utils import load_data_from_upload
 from ml_models import kmeans_cluster, cluster_plot, severity_classifier, regression_analysis
-
-# --- LOAD DATA ---
-df_emp, df_dept, df_roles, df_training, df_incidents, df_events, df_ai, df_bc, df_policy = load_data('data')
 
 st.set_page_config(page_title="CyberSOC-aaS Executive Dashboard", layout="wide")
 st.title("Blockchain-Enabled Agentic AI Cybersecurity Platform")
 
-# --- TAB NAVIGATION ---
+# ---- Upload UI ----
+st.sidebar.header("Upload All 9 CSV Data Files")
+uploaded_files = st.sidebar.file_uploader(
+    "Upload the following: employees, departments, roles, training, incidents, security_events, agentic_ai_log, blockchain_audit_log, policy",
+    type="csv", accept_multiple_files=True)
+
+if not uploaded_files or len(uploaded_files) < 9:
+    st.warning("Please upload all 9 required CSV files.")
+    st.stop()
+
+dfs = load_data_from_upload(uploaded_files)
+
+# Assign DataFrames
+try:
+    df_emp = dfs['employees']
+    df_dept = dfs['departments']
+    df_roles = dfs['roles']
+    df_training = dfs['training']
+    df_incidents = dfs['incidents']
+    df_events = dfs['security_events']
+    df_ai = dfs['agentic_ai_log']
+    df_bc = dfs['blockchain_audit_log']
+    df_policy = dfs['policy']
+except Exception as e:
+    st.error(f"Could not assign all dataframes: {e}")
+    st.stop()
+
+# ---- Tabs ----
 tabs = st.tabs([
     "🏠 Executive Overview", 
     "📊 Cybersecurity Metrics", 
@@ -25,23 +49,20 @@ tabs = st.tabs([
 # --- EXECUTIVE OVERVIEW ---
 with tabs[0]:
     st.header("Executive Summary & KPIs")
-    st.write("A high-level summary for C-suite, including real-time security KPIs, trends, and compliance posture. This dashboard is updated automatically from the SOC data lake (synthetic for demo).")
+    st.write("A high-level summary for C-suite, including real-time security KPIs, trends, and compliance posture.")
 
-    # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Employees", df_emp.shape[0])
     col2.metric("Total Incidents (year)", df_incidents.shape[0])
     col3.metric("Trainings (completed)", (df_training['Status']=="Completed").sum())
     col4.metric("Resolved Incidents", (df_incidents['Status']=="Closed").sum())
-    
-    # Training and awareness, explained
+
     st.subheader("Training & Awareness Completion")
     st.write("**This chart shows the distribution of cybersecurity awareness scores across all employees. Peaks to the right indicate successful training.**")
     awareness = df_training[df_training['TrainingType'] == 'Cybersecurity Awareness']
     fig_awareness = px.histogram(awareness, x="Score", nbins=25, title="Awareness Score Distribution", color="Status")
     st.plotly_chart(fig_awareness, use_container_width=True)
-    
-    # Incidents over time
+
     st.subheader("Incident Trend (Last Year)")
     st.write("**Tracks the volume of reported incidents each month. Spikes may correlate to attack waves or new vulnerabilities.**")
     df_incidents['DateReported'] = pd.to_datetime(df_incidents['DateReported'])
@@ -49,8 +70,7 @@ with tabs[0]:
     fig_trend = px.line(x=monthly_trend.index.astype(str), y=monthly_trend.values, markers=True,
                         title="Incidents Reported Over Time", labels={'x': 'Month', 'y': 'Incident Count'})
     st.plotly_chart(fig_trend, use_container_width=True)
-    
-    # Compliance (policy versions, enforcement)
+
     st.subheader("Compliance Policy Versions")
     st.write("**Recent active security policies and enforcement records (AI/Human/Hybrid).**")
     st.dataframe(df_policy.sort_values('DateActive', ascending=False).head(8), use_container_width=True)
@@ -59,15 +79,12 @@ with tabs[0]:
 with tabs[1]:
     st.header("Operational Security Metrics")
     st.write("**Monitor incident types, severities, department risks, and threat heatmaps to prioritize resource allocation and risk mitigation.**")
-    # Pie chart: Incidents by type
     fig_types = px.pie(df_incidents, names="IncidentType", title="Incidents by Type")
     st.plotly_chart(fig_types, use_container_width=True)
-    # Heatmap: Department x Severity
     dept_sev = pd.crosstab(df_incidents['DepartmentID'], df_incidents['Severity'])
     dept_sev.index = dept_sev.index.map(df_dept.set_index('DepartmentID')['DepartmentName'].to_dict())
     fig_heat = px.imshow(dept_sev, text_auto=True, aspect="auto", title="Incident Severity by Department")
     st.plotly_chart(fig_heat, use_container_width=True)
-    # Bar: Top departments by incident count
     top_depts = df_incidents['DepartmentID'].value_counts().rename(index=df_dept.set_index('DepartmentID')['DepartmentName'].to_dict())
     fig_bar = px.bar(x=top_depts.index, y=top_depts.values, labels={'x':'Department','y':'Incident Count'}, title="Incidents by Department")
     st.plotly_chart(fig_bar, use_container_width=True)
@@ -76,12 +93,10 @@ with tabs[1]:
 with tabs[2]:
     st.header("Incident & Threat Deep-Dive")
     st.write("**Analyze individual incidents, threat detection speed, AI vs. human response, and event-level logs.**")
-    # Filtering
     sev_filter = st.multiselect("Filter by Severity", df_incidents['Severity'].unique(), default=df_incidents['Severity'].unique())
     type_filter = st.multiselect("Filter by Type", df_incidents['IncidentType'].unique(), default=df_incidents['IncidentType'].unique())
     sub_df = df_incidents[df_incidents['Severity'].isin(sev_filter) & df_incidents['IncidentType'].isin(type_filter)]
     st.dataframe(sub_df[['IncidentID','IncidentType','Severity','DateReported','Status','AgenticAIAction','AIResponseTime']].sort_values('DateReported', ascending=False).head(30), use_container_width=True)
-    # Scatter: Response time by severity
     st.write("**Scatterplot below shows AI response time vs. incident severity.**")
     fig_resp = px.scatter(sub_df, x="AIResponseTime", y="Severity", color="Status", 
                           title="AI Response Time vs. Severity", labels={"AIResponseTime":"AI Response Time (min)"})
@@ -91,13 +106,10 @@ with tabs[2]:
 with tabs[3]:
     st.header("Agentic AI Automation & Blockchain Auditability")
     st.write("**Explore logs of automated actions, AI confidence, human escalations, and blockchain-backed event trails.**")
-    # AI action log
     st.write("Agentic AI Action Log (last 20):")
     st.dataframe(df_ai[['Timestamp','AgentID','ActionTaken','DecisionConfidence','EscalatedToHuman','Outcome']].sort_values('Timestamp', ascending=False).head(20), use_container_width=True)
-    # AI confidence by action
     fig_conf = px.box(df_ai, x='ActionTaken', y='DecisionConfidence', title="AI Decision Confidence by Action")
     st.plotly_chart(fig_conf, use_container_width=True)
-    # Blockchain audit samples
     st.write("Blockchain Audit Log (random sample):")
     st.dataframe(df_bc.sample(10), use_container_width=True)
 
@@ -118,10 +130,8 @@ with tabs[4]:
     st.plotly_chart(cluster_plot(df_clustered, 'Score', 'IncidentsCaused'), use_container_width=True)
     st.write("**Interpretation:** Each color represents a cluster of employees based on cyber awareness and incident history. Outliers/high-risk employees stand apart.")
 
-    # Classification
     st.subheader("Incident Severity Classification (Random Forest)")
     st.write("**Predict incident severity based on features (AI response time, department, incident type).**")
-    # Prepare features
     feat_map = {k: v for v, k in enumerate(df_dept['DepartmentName'].values)}
     df_class = df_incidents.copy()
     df_class['DeptIdx'] = df_class['DepartmentID'].map(feat_map)
@@ -131,7 +141,6 @@ with tabs[4]:
     st.bar_chart(pd.Series(importances, index=X_cols))
     st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
 
-    # Regression
     st.subheader("Regression: Predicting Number of Incidents Caused by Employee")
     st.write("**Linear regression predicts who might cause more incidents (risk scoring) based on training scores and role.**")
     df_reg = df_emp_ml.copy()
@@ -158,4 +167,3 @@ with tabs[5]:
     st.dataframe(df_events[df_events['EmployeeID'] == emp_row['EmployeeID']].head(10), use_container_width=True)
 
 st.info("This dashboard empowers CEO & CTO with actionable insights on cyber readiness, incident risk, AI efficacy, and compliance. Use tabs to explore metrics, drill into root causes, and optimize security posture.")
-
