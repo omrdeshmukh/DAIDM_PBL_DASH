@@ -52,16 +52,26 @@ def plot_silhouette_curve(scores, max_k=10):
 
 def cluster_3d_plot(df, x, y, z):
     fig = px.scatter_3d(df, x=x, y=y, z=z, color='cluster',
-                        title=f"3D K-means Clusters: {x} vs {y} vs {z}")
+                        title=f"3D K-means Clusters: {x} vs {y} vs {z}",
+                        custom_data=['EmployeeID', 'Name', 'DepartmentID', 'RoleID'])
+    fig.update_traces(
+        hovertemplate="Employee: %{customdata[1]}<br>"+\
+                      f"{x}: "+"%{x}<br>"+f"{y}: "+"%{y}<br>"+f"{z}: "+"%{z}<br>"+
+                      "Dept: %{customdata[2]}<br>Role: %{customdata[3]}"
+    )
     return fig
 
-# --- Classifiers: KNN, DecisionTree, RandomForest, GBRT ---
-def train_classifiers(df, features, target):
+# --- Enhanced Classifiers ---
+def train_classifiers(df, features, target, label_encoder=None):
     from sklearn.model_selection import train_test_split
     results = {}
     df = df.dropna(subset=features + [target])
     X = df[features]
-    y = LabelEncoder().fit_transform(df[target])
+    if label_encoder is None:
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(df[target])
+    else:
+        y = label_encoder.transform(df[target])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # KNN
@@ -74,17 +84,17 @@ def train_classifiers(df, features, target):
     dt.fit(X_train, y_train)
     results['DT'] = (dt, dt.score(X_test, y_test), confusion_matrix(y_test, dt.predict(X_test)))
 
-    # Random Forest
-    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    # Random Forest (with class weights)
+    rf = RandomForestClassifier(class_weight='balanced', n_estimators=200, random_state=42)
     rf.fit(X_train, y_train)
-    results['RF'] = (rf, rf.score(X_test, y_test), confusion_matrix(y_test, rf.predict(X_test)))
+    results['RF'] = (rf, rf.score(X_test, y_test), confusion_matrix(y_test, rf.predict(X_test)), rf.feature_importances_)
 
     # Gradient Boosting
     gbt = GradientBoostingClassifier(random_state=42)
     gbt.fit(X_train, y_train)
     results['GBRT'] = (gbt, gbt.score(X_test, y_test), confusion_matrix(y_test, gbt.predict(X_test)))
 
-    return results, y_test
+    return results, y_test, label_encoder
 
 def plot_confusion(cm, labels, title="Confusion Matrix"):
     fig = px.imshow(cm, text_auto=True, title=title, labels=dict(x="Predicted", y="Actual"))
@@ -92,7 +102,7 @@ def plot_confusion(cm, labels, title="Confusion Matrix"):
     fig.update_yaxes(tickvals=list(range(len(labels))), ticktext=labels)
     return fig
 
-# --- Regressors ---
+# --- Enhanced Regressors ---
 def train_regressors(df, features, target):
     from sklearn.model_selection import train_test_split
     results = {}
