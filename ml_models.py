@@ -41,3 +41,4 @@ def regression_analysis(df, features, target):
     model.fit(X, y)
     coef = model.coef_
     return model, coef
+
