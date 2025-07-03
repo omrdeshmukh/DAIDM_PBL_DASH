@@ -157,90 +157,82 @@ with tabs[4]:
 with tabs[3]:
     st.header("ML & Predictive Analytics")
     st.markdown("""
-    _This section empowers CTOs, CISOs, and analysts to discover risk patterns, automate predictions, and measure the impact of cyber investments on the business. 
-    Each ML output is explained for execs, so findings can inform both technical and strategic decisions._
+    _Here, the CxO team can see not only risk clusters, but what drives incident risk—AND which employees or teams are most likely to need attention. 
+    3D plots allow you to visually identify high-risk clusters. You can click any point for a drilldown into that person or incident._
     """)
 
-    st.subheader("K-Means Clustering (with Elbow, Silhouette, and 3D Plots)")
-    st.write("""
-    **Clustering reveals natural risk groups among employees—outliers often indicate persistent risk or superstar performers.  
-    Use the elbow and silhouette methods to choose the right number of clusters. 3D plots make it easy to spot risk patterns.**
-    """)
-
-    # Prepare features (example: awareness + incidents + training count)
+    # -- Feature Engineering --
     df_emp_ml = df_emp.copy()
     emp_awareness = df_training[df_training['TrainingType'] == 'Cybersecurity Awareness'].groupby('EmployeeID')['Score'].mean().reset_index()
     emp_incidents = df_incidents.groupby('EmployeeID').size().reset_index(name='IncidentsCaused')
     emp_training_count = df_training.groupby('EmployeeID').size().reset_index(name='TrainingCount')
-    df_emp_ml = pd.merge(df_emp_ml, emp_awareness, on='EmployeeID', how='left')
-    df_emp_ml = pd.merge(df_emp_ml, emp_incidents, on='EmployeeID', how='left').fillna({'Score':0, 'IncidentsCaused':0})
-    df_emp_ml = pd.merge(df_emp_ml, emp_training_count, on='EmployeeID', how='left').fillna({'TrainingCount':0})
-
-    cluster_features = st.multiselect("Clustering Features", ['Score', 'IncidentsCaused', 'TrainingCount'], default=['Score','IncidentsCaused'])
-    max_k = st.slider("Elbow/Silhouette: Max clusters (K)", min_value=3, max_value=10, value=6)
-    if len(cluster_features) >= 2:
-        # Clean features
+    emp_role_idx = df_emp[['EmployeeID', 'RoleID']]
+    df_emp_ml = df_emp_ml.merge(emp_awareness, on='EmployeeID', how='left')
+    df_emp_ml = df_emp_ml.merge(emp_incidents, on='EmployeeID', how='left').fillna({'Score':0, 'IncidentsCaused':0})
+    df_emp_ml = df_emp_ml.merge(emp_training_count, on='EmployeeID', how='left').fillna({'TrainingCount':0})
+    df_emp_ml = df_emp_ml.merge(emp_role_idx, on='EmployeeID', how='left')
+    
+    # ---- 3D KMeans Clustering with Elbow and Silhouette ----
+    st.subheader("3D Risk Clustering")
+    st.write("Clusters employees by awareness, incidents caused, and training count. Outlier clusters are persistent risks or exemplars.")
+    cluster_features = st.multiselect("Clustering Features", ['Score', 'IncidentsCaused', 'TrainingCount'], default=['Score','IncidentsCaused','TrainingCount'])
+    max_k = st.slider("Elbow/Silhouette: Max clusters (K)", min_value=3, max_value=10, value=5)
+    if len(cluster_features) >= 3:
         X = df_emp_ml[cluster_features].dropna().to_numpy()
         inertia = get_elbow_curve(X, max_k=max_k)
         sil_scores = get_silhouette_scores(X, max_k=max_k)
         st.plotly_chart(plot_elbow_curve(inertia, max_k=max_k), use_container_width=True)
         st.plotly_chart(plot_silhouette_curve(sil_scores, max_k=max_k), use_container_width=True)
-
         n_clusters = st.slider("Number of Clusters to Display", min_value=2, max_value=max_k, value=3)
         df_clustered, kmeans, sil_score = kmeans_cluster(df_emp_ml, cluster_features, n_clusters)
         st.success(f"Silhouette Score for {n_clusters} clusters: {sil_score:.3f} (Higher = better defined clusters)")
-        st.write("**2D Cluster Plot**")
-        st.plotly_chart(px.scatter(df_clustered, x=cluster_features[0], y=cluster_features[1], color='cluster', title="K-means Clusters"), use_container_width=True)
-        if len(cluster_features) >= 3:
-            st.write("**3D Cluster Plot**")
-            st.plotly_chart(cluster_3d_plot(df_clustered, cluster_features[0], cluster_features[1], cluster_features[2]), use_container_width=True)
-        st.write("**Business interpretation:** Outlier clusters represent pockets of persistent risk (low awareness, high incidents), or potential role models.")
-
+        fig3d = cluster_3d_plot(df_clustered, cluster_features[0], cluster_features[1], cluster_features[2])
+        st.plotly_chart(fig3d, use_container_width=True)
+        # Optional: select and drilldown
+        st.write("Click any point for full info (see hover pop-up).")
+    
     st.divider()
-
-    # --- Classification Section ---
-    st.subheader("Incident Severity Prediction (Multiple Classifiers)")
+    # --- Classification: Richer Features ---
+    st.subheader("Incident Severity Classification (All Models)")
     st.write("""
-    **How well can we predict which incidents will be severe?**  
-    Try multiple ML models and compare. Confusion matrix shows what the AI "gets right" vs. where it struggles.  
-    Feature importances reveal which factors matter most.
+    _Models predict severity of incidents using employee and incident data. High accuracy in 'Critical' class means lower breach risk._
     """)
-    # Prepare data for classification
-    df_class = df_incidents.copy()
-    feat_map = {k: v for v, k in enumerate(df_dept['DepartmentName'].values)}
-    df_class['DeptIdx'] = df_class['DepartmentID'].map(feat_map)
-    df_class['TypeIdx'] = df_class['IncidentType'].astype('category').cat.codes
-    # Ensure all features and target are numeric, clean NaNs/infs
-    X_cols = ['AIResponseTime', 'DeptIdx', 'TypeIdx']
-    for col in X_cols:
-        df_class[col] = pd.to_numeric(df_class[col], errors='coerce')
-    df_class = df_class.dropna(subset=X_cols + ['Severity'])
-    target_label = 'Severity'
-    if df_class.empty:
-        st.warning("Not enough clean data for classification. Please check for missing AIResponseTime or Severity values.")
+    # Data prep
+    df_inc = df_incidents.copy()
+    emp_feats = df_emp[['EmployeeID', 'DepartmentID', 'RoleID', 'Location']]
+    train_feats = df_training[df_training['TrainingType']=='Cybersecurity Awareness'].groupby('EmployeeID')['Score'].mean().reset_index()
+    df_inc = df_inc.merge(emp_feats, left_on='EmployeeID', right_on='EmployeeID', how='left')
+    df_inc = df_inc.merge(train_feats, on='EmployeeID', how='left', suffixes=('','_awareness'))
+    df_inc['DeptIdx'] = df_inc['DepartmentID'].astype('category').cat.codes
+    df_inc['RoleIdx'] = df_inc['RoleID'].astype('category').cat.codes
+    df_inc['LocationIdx'] = df_inc['Location'].astype('category').cat.codes
+    df_inc['TypeIdx'] = df_inc['IncidentType'].astype('category').cat.codes
+    X_cols = ['AIResponseTime', 'DeptIdx', 'RoleIdx', 'LocationIdx', 'TypeIdx', 'Score']
+    df_inc = df_inc.dropna(subset=X_cols + ['Severity'])
+    label_encoder = LabelEncoder()
+    if df_inc.empty:
+        st.warning("Not enough clean data for classification. Please check for missing values.")
     else:
-        models, y_test = train_classifiers(df_class, X_cols, target_label)
-        st.write("**Model Comparison:**")
-        for name, (model, score, cm) in models.items():
+        models, y_test, label_encoder = train_classifiers(df_inc, X_cols, 'Severity', label_encoder=label_encoder)
+        for name, (model, score, cm, *extras) in models.items():
             st.write(f"**{name}**: Test accuracy = {score:.2%}")
-            st.plotly_chart(plot_confusion(cm, labels=np.unique(df_class[target_label]), title=f"{name} Confusion Matrix"), use_container_width=True)
+            st.plotly_chart(plot_confusion(cm, labels=label_encoder.classes_, title=f"{name} Confusion Matrix"), use_container_width=True)
+            if name == "RF" and extras:
+                st.write("**Random Forest Feature Importances**")
+                st.bar_chart(pd.Series(extras[0], index=X_cols))
         st.write("""
-        **Interpretation:** Higher accuracy means better incident risk prediction.  
-        Confusion matrices show where models misclassify severity (e.g., calling a 'High' event 'Medium').  
-        For board risk reports, focus on reducing severe-class false negatives.
+        **Business interpretation:** Focus on models with highest Critical/High class accuracy and on features with highest importance.
         """)
 
     st.divider()
-
-    # --- Regression Section ---
-    st.subheader("Incident Cause Risk Prediction (Regression)")
+    # --- Regression: Who Causes Incidents ---
+    st.subheader("Incident Cause Risk Regression (All Models)")
     st.write("""
-    **Which factors drive the number of incidents an employee causes?**  
-    Run multiple regression models to understand which levers (awareness, training, role) have most impact.
+    _Predicts which factors (awareness, role, training count) drive number of incidents per employee. Use this to prioritize your next investments in training or controls._
     """)
     df_reg = df_emp_ml.copy()
     df_reg['RoleIdx'] = df_reg['RoleID']
-    regression_features = st.multiselect("Regression Features", ['Score', 'RoleIdx', 'TrainingCount'], default=['Score','RoleIdx'])
+    regression_features = st.multiselect("Regression Features", ['Score', 'RoleIdx', 'TrainingCount'], default=['Score','RoleIdx','TrainingCount'])
     target_reg = 'IncidentsCaused'
     if df_reg[regression_features + [target_reg]].dropna().empty:
         st.warning("Not enough clean data for regression. Please select valid features.")
@@ -251,12 +243,10 @@ with tabs[3]:
             if coef is not None:
                 st.bar_chart(pd.Series(coef, index=regression_features))
         st.write("""
-        **Interpretation:** R2 tells you how well the model explains who will cause more incidents.  
-        The bar chart shows which factors matter most. Use this to design targeted training or access reviews.
+        **Business interpretation:** Features with largest coefficients are most important. Use this to decide where to target awareness programs or automate access controls.
         """)
 
     st.info("""
-    _Every ML chart here is executive-ready.  
-    CEOs and CTOs can see at-a-glance which segments are most at risk, where AI/ML is succeeding or struggling, 
-    and which interventions will yield the highest risk reduction per dollar spent._
+    _This entire analytics panel turns AI/ML into boardroom-ready business value.  
+    Use it to show the board exactly how your cyber posture is evolving—and exactly where to invest for the biggest reduction in breach risk._
     """)
