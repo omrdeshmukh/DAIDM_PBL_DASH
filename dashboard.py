@@ -82,8 +82,8 @@ with tabs[0]:
     closure = df_incidents.copy()
     closure['Month'] = pd.to_datetime(closure['DateReported']).dt.to_period('M')
     closure_rate = closure.groupby('Month')['Status'].apply(lambda x: (x == 'Closed').mean())
-    fig = px.line(x=closure_rate.index.astype(str), y=closure_rate.values, markers=True,
-                  title="Incident Closure Rate (%)", labels={'x': 'Month', 'y': 'Closure Rate'})
+    closure_rate_df = pd.DataFrame({'Month': closure_rate.index.astype(str), 'ClosureRate': closure_rate.values})
+    fig = px.line(closure_rate_df, x='Month', y='ClosureRate', markers=True, title="Incident Closure Rate (%)", labels={'Month': 'Month', 'ClosureRate': 'Closure Rate'})
     st.plotly_chart(fig, use_container_width=True)
     st.caption("**CEO insight:** A closure rate below 85% signals backlog; consider surge IT resources.")
 
@@ -92,8 +92,8 @@ with tabs[0]:
     training = df_training.copy()
     training['Month'] = pd.to_datetime(training['DateCompleted'], errors='coerce').dt.to_period('M')
     tc_trend = training.groupby('Month')['Status'].apply(lambda x: (x=="Completed").mean())
-    fig2 = px.line(x=tc_trend.index.astype(str), y=tc_trend.values, markers=True,
-                   title="Monthly Training Completion Rate", labels={'x':'Month', 'y':'Completion Rate'})
+    tc_trend_df = pd.DataFrame({'Month': tc_trend.index.astype(str), 'CompletionRate': tc_trend.values})
+    fig2 = px.line(tc_trend_df, x='Month', y='CompletionRate', markers=True, title="Monthly Training Completion Rate", labels={'Month':'Month', 'CompletionRate':'Completion Rate'})
     st.plotly_chart(fig2, use_container_width=True)
     st.caption("**Board focus:** Monitor dips. Surge completions after incidents = 'learning after breach', not before.")
 
@@ -183,9 +183,8 @@ with tabs[1]:
         trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')).size()
     else:
         trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('W')).size()
-    fig = px.line(x=trend.index.astype(str), y=trend.values, markers=True,
-                  title=f"Incidents Reported per {time_gran}",
-                  labels={'x': time_gran, 'y': 'Number of Incidents'})
+        trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
+        fig = px.line(trend_df, x='Time', y='Count', markers=True, title=f"Incidents Reported per {time_gran}", labels={'Time': time_gran, 'Count': 'Number of Incidents'})
     st.plotly_chart(fig, use_container_width=True)
     st.caption(f"**Why it matters:** Trends reveal breach campaigns, detection gaps, or changes in staff behavior.")
 
@@ -195,7 +194,8 @@ with tabs[1]:
     by_day = df_incidents['DayOfWeek'].value_counts().reindex([
         'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
     ], fill_value=0)
-    fig2 = px.bar(x=by_day.index, y=by_day.values, title="Incidents by Day of Week")
+    by_day_df = pd.DataFrame({'DayOfWeek': by_day.index, 'Count': by_day.values})
+    fig2 = px.bar(by_day_df, x='DayOfWeek', y='Count', title="Incidents by Day of Week")
     st.plotly_chart(fig2, use_container_width=True)
     st.caption("**Executive takeaway:** Clusters on certain days may signal process/shift/monitoring issues.")
 
@@ -238,7 +238,8 @@ with tabs[1]:
     emp_counts = df_incidents['EmployeeID'].value_counts().head(10)
     emp_names = df_emp.set_index('EmployeeID')['Name'].to_dict()
     emp_labels = [emp_names.get(eid, eid) for eid in emp_counts.index]
-    fig7 = px.bar(x=emp_labels, y=emp_counts.values, title="Employees with Most Incidents")
+    emp_counts_df = pd.DataFrame({'Employee': emp_labels, 'Count': emp_counts.values})
+    fig7 = px.bar(emp_counts_df, x='Employee', y='Count', title="Employees with Most Incidents")
     st.plotly_chart(fig7, use_container_width=True)
     st.caption("**Management:** Use for HR engagement or to find training/monitoring needs.")
 
@@ -318,7 +319,8 @@ with tabs[2]:
     failed = df_training[df_training['Status'] == 'Failed']
     failed_dept = failed.merge(df_emp[['EmployeeID','DepartmentID']], on='EmployeeID')
     failed_dept = failed_dept['DepartmentID'].map(df_dept.set_index('DepartmentID')['DepartmentName']).value_counts()
-    fig5 = px.bar(x=failed_dept.index, y=failed_dept.values, title="Failed Trainings by Department")
+    failed_dept_df = pd.DataFrame({'Department': failed_dept.index, 'Count': failed_dept.values})
+    fig5 = px.bar(failed_dept_df, x='Department', y='Count', title="Failed Trainings by Department")
     st.plotly_chart(fig5, use_container_width=True)
     st.caption("**Board impact:** Persistent failures signal cultural/process gaps.")
 
@@ -367,7 +369,8 @@ with tabs[3]:
     # 1. Departmental Incident Volume
     st.subheader("1. Incident Volume by Department")
     dept_counts = df_incidents['DepartmentID'].map(df_dept.set_index('DepartmentID')['DepartmentName']).value_counts()
-    fig = px.bar(x=dept_counts.index, y=dept_counts.values, title="Incidents by Department")
+    dept_counts_df = pd.DataFrame({'Department': dept_counts.index, 'Count': dept_counts.values})
+    fig = px.bar(dept_counts_df, x='Department', y='Count', title="Incidents by Department")
     st.plotly_chart(fig, use_container_width=True)
     st.caption("**Management:** Persistent top-3 risk departments should trigger targeted audits.")
 
@@ -468,7 +471,9 @@ with tabs[4]:
     type_counts = df_incidents['IncidentType'].value_counts()
     selected_types = st.multiselect("Filter Incident Types", options=type_counts.index, default=list(type_counts.index)[:3])
     filtered_inc = df_incidents[df_incidents['IncidentType'].isin(selected_types)]
-    fig = px.bar(filtered_inc['IncidentType'].value_counts(), title="Filtered Incidents by Type")
+    vc = filtered_inc['IncidentType'].value_counts().reset_index()
+    vc.columns = ['IncidentType', 'Count']
+    fig = px.bar(vc, x='IncidentType', y='Count', title="Filtered Incidents by Type")
     st.plotly_chart(fig, use_container_width=True)
     st.caption("**Use:** Focus on top attack vectors for budget/board reporting.")
 
@@ -650,7 +655,9 @@ with tabs[6]:
     st.subheader("5. Policy Linked to Incident Types")
     if 'IncidentType' in df_policy.columns:
         pol_inc = df_policy['IncidentType'].value_counts()
-        fig5 = px.bar(pol_inc, title="Policies Linked to Incident Types")
+        pol_inc_df = pol_inc.reset_index()
+        pol_inc_df.columns = ['IncidentType', 'Count']
+        fig5 = px.bar(pol_inc_df, x='IncidentType', y='Count', title="Policies Linked to Incident Types")
         st.plotly_chart(fig5, use_container_width=True)
         st.caption("**Audit:** Unlinked types = exposure. Update policies to match current threats.")
 
