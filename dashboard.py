@@ -166,6 +166,7 @@ with tabs[0]:
     df_sev_trend = df_incidents[df_incidents['Severity'].isin(sev_select)].copy()
     df_sev_trend['Month'] = pd.to_datetime(df_sev_trend['DateReported']).dt.to_period('M')
     monthly_sev = df_sev_trend.groupby(['Month','Severity']).size().reset_index(name='Count')
+    monthly_sev['Month'] = monthly_sev['Month'].astype(str) 
     fig7 = px.line(monthly_sev, x='Month', y='Count', color='Severity', markers=True, title="Incidents Over Time (by Severity)")
     st.plotly_chart(fig7, use_container_width=True)
     st.caption("**Actionable:** Spikes in 'Critical' or 'High' must trigger crisis comms and action.")
