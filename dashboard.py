@@ -136,9 +136,23 @@ with tabs[4]:
     df_class = df_incidents.copy()
     df_class['DeptIdx'] = df_class['DepartmentID'].map(feat_map)
     df_class['TypeIdx'] = df_class['IncidentType'].astype('category').cat.codes
+    
+    # Ensure all features and target are numeric and drop rows with missing or infinite values
     X_cols = ['AIResponseTime', 'DeptIdx', 'TypeIdx']
-    model, importances = severity_classifier(df_class, X_cols, target='Severity')
-    st.bar_chart(pd.Series(importances, index=X_cols))
+    for col in X_cols:
+        df_class[col] = pd.to_numeric(df_class[col], errors='coerce')
+    df_class = df_class.dropna(subset=X_cols + ['Severity'])
+    
+    if df_class.empty:
+        st.warning("Not enough clean data for classification. Please check for missing AIResponseTime or Severity values.")
+    else:
+        try:
+            model, importances = severity_classifier(df_class, X_cols, target='Severity')
+            st.bar_chart(pd.Series(importances, index=X_cols))
+        st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
+    except Exception as e:
+        st.error(f"Classification model failed: {e}")
+
     st.write("**Interpretation:** Higher feature importance means that factor is more predictive of incident severity. Use these insights to tune training and response.")
 
     st.subheader("Regression: Predicting Number of Incidents Caused by Employee")
