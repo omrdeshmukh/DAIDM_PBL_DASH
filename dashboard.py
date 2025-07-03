@@ -138,7 +138,13 @@ with tabs[0]:
 
     # 8. Awareness Score Distribution (with filter)
     st.subheader("8. Awareness Score Distribution")
-    min_score, max_score = int(awareness['Score'].min()), int(awareness['Score'].max())
+    awareness = df_training[df_training['TrainingType'] == 'Cybersecurity Awareness']
+    if awareness.empty:
+        st.warning("No Cybersecurity Awareness data found.")
+        min_score, max_score = 0, 100
+    else:
+        min_score, max_score = int(awareness['Score'].min()), int(awareness['Score'].max())
+
     score_range = st.slider("Awareness Score Range (Filter)", min_value=min_score, max_value=max_score,
                             value=(min_score, max_score), step=1)
     filtered_awareness = awareness[(awareness['Score'] >= score_range[0]) & (awareness['Score'] <= score_range[1])]
