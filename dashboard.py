@@ -404,6 +404,7 @@ with tabs[3]:
     df_incidents['Month'] = pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')
     dept_month = df_incidents.groupby(['Month','DepartmentID']).size().reset_index(name='Count')
     dept_month['Department'] = dept_month['DepartmentID'].map(df_dept.set_index('DepartmentID')['DepartmentName'])
+    dept_month['Month'] = dept_month['Month'].astype(str)
     fig4 = px.line(dept_month, x='Month', y='Count', color='Department', title="Monthly Incident Trend by Department")
     st.plotly_chart(fig4, use_container_width=True)
     st.caption("**For resource planning:** See where investment is paying off.")
