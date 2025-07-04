@@ -580,6 +580,7 @@ with tabs[5]:
     st.subheader("1. AI Actions: Monthly Trend")
     df_ai['Month'] = pd.to_datetime(df_ai['Timestamp'], errors='coerce').dt.to_period('M')
     ai_monthly = df_ai.groupby('Month').size().reset_index(name='ActionCount')
+    ai_monthly['Month'] = trend['Month'].astype(str) 
     fig = px.line(ai_monthly, x='Month', y='ActionCount', markers=True, title="Monthly AI Actions")
     st.plotly_chart(fig, use_container_width=True)
     st.caption("**Exec insight:** Is AI engagement rising? Flatlining may mean plateaued adoption.")
