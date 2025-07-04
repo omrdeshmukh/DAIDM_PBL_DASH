@@ -652,7 +652,7 @@ with tabs[6]:
 
     # 3. Policy Enforcement by AI/Human/Hybrid
     st.subheader("3. Enforcement Ownership")
-    fig3 = px.pie(df_policy, names='EnforcementType', title="Policy Enforcement Channel")
+    fig3 = px.pie(df_policy, names='EnforcedBy', title="Policy Enforcement Channel")
     st.plotly_chart(fig3, use_container_width=True)
     st.caption("**For innovation:** % AI-enforced shows forward-leaning, scalable program.")
 
