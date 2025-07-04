@@ -853,13 +853,13 @@ with tabs[8]:
     
     # RoleIDIdx: join employee role (if EmployeeID present)
     if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_emp.columns:
-        emp_role = df_employees[['EmployeeID', 'RoleID']]
+        emp_role = df_emp[['EmployeeID', 'RoleID']]
         df_inc = df_inc.merge(emp_role, on='EmployeeID', how='left', suffixes=('','_emp'))
         df_inc['RoleIDIdx'], _ = safe_label_encode(df_inc['RoleID'])
     
     # LocationIdx: join employee location
-    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_employees.columns:
-        emp_loc = df_employees[['EmployeeID', 'Location']]
+    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_emp.columns:
+        emp_loc = df_emp[['EmployeeID', 'Location']]
         df_inc = df_inc.merge(emp_loc, on='EmployeeID', how='left', suffixes=('','_emp'))
         df_inc['LocationIdx'], _ = safe_label_encode(df_inc['Location'])
     
