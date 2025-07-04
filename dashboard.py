@@ -595,6 +595,7 @@ with tabs[5]:
     st.subheader("3. Human Escalation Rate Over Time")
     df_ai['EscalatedToHuman'] = df_ai['EscalatedToHuman'].astype(str)
     esc_rate = df_ai.groupby(['Month','EscalatedToHuman']).size().reset_index(name='Count')
+    esc_rate['Month'] = trend['Month'].astype(str) 
     fig3 = px.bar(esc_rate, x='Month', y='Count', color='EscalatedToHuman', barmode='group', title="Escalations to Human Analyst")
     st.plotly_chart(fig3, use_container_width=True)
     st.caption("**Board:** Steadily decreasing escalations signals AI maturity and trust.")
