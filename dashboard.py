@@ -182,26 +182,25 @@ with tabs[1]:
     st.subheader("1. Incidents Over Time")
     time_gran = st.radio("Select Time Granularity", ["Month", "Week"])
     if time_gran == "Month":
-        trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')).size()
-        trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
+        periods = pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')
     else:
-        trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('W')).size()
-        trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
-    
-    fig = px.line(trend_df, x='Time', y='Count', markers=True, title=f"Incidents Reported per {time_gran}", labels={'Time': time_gran, 'Count': 'Number of Incidents'})
-    st.plotly_chart(fig, use_container_width=True, key="tab2_incidents_over_time")
-
+        periods = pd.to_datetime(df_incidents['DateReported']).dt.to_period('W')
+    trend = df_incidents.groupby(periods).size()
+    trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
+    fig = px.line(trend_df, x='Time', y='Count', markers=True, 
+                  title=f"Incidents Reported per {time_gran}",
+                  labels={'Time': time_gran, 'Count': 'Number of Incidents'})
+    st.plotly_chart(fig, use_container_width=True, key="tab2_trend")
     st.caption(f"**Why it matters:** Trends reveal breach campaigns, detection gaps, or changes in staff behavior.")
 
     # 2. Incidents by Day of Week
     st.subheader("2. Incident Frequency by Day of Week")
     df_incidents['DayOfWeek'] = pd.to_datetime(df_incidents['DateReported']).dt.day_name()
-    by_day = df_incidents['DayOfWeek'].value_counts().reindex([
-        'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
-    ], fill_value=0)
+    by_day = df_incidents['DayOfWeek'].value_counts().reindex(
+        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], fill_value=0)
     by_day_df = pd.DataFrame({'DayOfWeek': by_day.index, 'Count': by_day.values})
     fig2 = px.bar(by_day_df, x='DayOfWeek', y='Count', title="Incidents by Day of Week")
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, key="tab2_by_day")
     st.caption("**Executive takeaway:** Clusters on certain days may signal process/shift/monitoring issues.")
 
     # 3. Incident Report Lag (Reporting Speed)
@@ -211,7 +210,7 @@ with tabs[1]:
         df_incidents['DateResolved'] = pd.to_datetime(df_incidents['DateResolved'], errors='coerce')
         df_incidents['LagDays'] = (df_incidents['DateResolved'] - df_incidents['DateReported']).dt.days
         fig3 = px.box(df_incidents, y='LagDays', points="all", title="Time to Incident Resolution (Days)")
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True, key="tab2_lagdays")
         st.caption("**Board action:** Outliers with long lags = process or resource problems.")
 
     # 4. Open vs Closed Incidents by Department
@@ -219,49 +218,47 @@ with tabs[1]:
     dept_status = df_incidents.groupby(['DepartmentID', 'Status']).size().reset_index(name='Count')
     dept_status['Department'] = dept_status['DepartmentID'].map(df_dept.set_index('DepartmentID')['DepartmentName'])
     fig4 = px.bar(dept_status, x='Department', y='Count', color='Status', barmode='group', title="Incident Status by Department")
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig4, use_container_width=True, key="tab2_dept_status")
     st.caption("**For management:** Departments with high % open incidents may need support or process overhaul.")
 
     # 5. Incident Source: Internal vs External
     st.subheader("5. Incident Source: Internal vs External")
-    # Assume incidents with employee ID in top mgmt/IT are internal, else external (customize for real org)
     staff_roles = df_emp.set_index('EmployeeID')['RoleID'].to_dict()
-    df_incidents['SourceType'] = df_incidents['EmployeeID'].map(lambda eid: 'Internal' if staff_roles.get(eid, 0) in [1,2,3] else 'External')
+    df_incidents['SourceType'] = df_incidents['EmployeeID'].map(lambda eid: 'Internal' if staff_roles.get(eid, 0) in [1, 2, 3] else 'External')
     fig5 = px.pie(df_incidents, names='SourceType', title="Incident Source Breakdown")
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, use_container_width=True, key="tab2_source_type")
     st.caption("**Risk context:** External incidents = perimeter risk; internal = HR/process/privilege risk.")
 
     # 6. Incidents by Time of Day
     st.subheader("6. Incidents by Hour")
     df_incidents['Hour'] = pd.to_datetime(df_incidents['DateReported']).dt.hour
     fig6 = px.histogram(df_incidents, x='Hour', nbins=24, title="Incident Volume by Hour of Day")
-    st.plotly_chart(fig6, use_container_width=True)
+    st.plotly_chart(fig6, use_container_width=True, key="tab2_by_hour")
     st.caption("**Board takeaway:** Peaks at night = need for 24x7 monitoring or process improvement.")
 
     # 7. Top 10 Employees by Incident Count
     st.subheader("7. Top 10 Employees by Incidents")
     emp_counts = df_incidents['EmployeeID'].value_counts().head(10)
-    emp_names = df_emp.set_index('EmployeeID')['Name'].to_dict()
-    emp_labels = [emp_names.get(eid, eid) for eid in emp_counts.index]
+    emp_names_map = df_emp.set_index('EmployeeID')['Name'].to_dict()
+    emp_labels = [emp_names_map.get(eid, eid) for eid in emp_counts.index]
     emp_counts_df = pd.DataFrame({'Employee': emp_labels, 'Count': emp_counts.values})
     fig7 = px.bar(emp_counts_df, x='Employee', y='Count', title="Employees with Most Incidents")
-    st.plotly_chart(fig7, use_container_width=True)
+    st.plotly_chart(fig7, use_container_width=True, key="tab2_top_emps")
     st.caption("**Management:** Use for HR engagement or to find training/monitoring needs.")
 
     # 8. Incidents by Status and Severity (stacked)
     st.subheader("8. Incidents by Status and Severity")
-    stacked = df_incidents.groupby(['Status','Severity']).size().reset_index(name='Count')
+    stacked = df_incidents.groupby(['Status', 'Severity']).size().reset_index(name='Count')
     fig8 = px.bar(stacked, x='Status', y='Count', color='Severity', barmode='stack', title="Incident Status/Severity Breakdown")
-    st.plotly_chart(fig8, use_container_width=True)
+    st.plotly_chart(fig8, use_container_width=True, key="tab2_status_sev")
     st.caption("**Exec summary:** See if open incidents are trending toward higher severity.")
 
     # 9. AI vs Human Detected (Over Time)
     st.subheader("9. AI vs Human Detection Over Time")
-    df_events['EventDate'] = pd.to_datetime(df_events['Timestamp'], errors='coerce').dt.to_period('M')
-    ai_trend = df_events.groupby(['EventDate','DetectedBy']).size().reset_index(name='Count')
-    fig9 = px.line(ai_trend, x='EventDate', y='Count', color='DetectedBy', markers=True,
-                   title="Detection Channel Over Time")
-    st.plotly_chart(fig9, use_container_width=True)
+    df_events['EventDate'] = pd.to_datetime(df_events['Timestamp'], errors='coerce').dt.to_period('M').astype(str)
+    ai_trend = df_events.groupby(['EventDate', 'DetectedBy']).size().reset_index(name='Count')
+    fig9 = px.line(ai_trend, x='EventDate', y='Count', color='DetectedBy', markers=True, title="Detection Channel Over Time")
+    st.plotly_chart(fig9, use_container_width=True, key="tab2_ai_trend")
     st.caption("**Innovation metric:** Board can track AI adoption and human review trends.")
 
     # 10. Custom Time Filter: Rolling Window
@@ -269,8 +266,9 @@ with tabs[1]:
     days_window = st.slider("Select Rolling Window (Days)", min_value=7, max_value=90, value=30)
     latest = df_incidents[pd.to_datetime(df_incidents['DateReported']) >= (pd.to_datetime('today') - pd.Timedelta(days=days_window))]
     fig10 = px.histogram(latest, x='Severity', color='Status', title=f"Incidents in Last {days_window} Days (by Severity & Status)")
-    st.plotly_chart(fig10, use_container_width=True)
+    st.plotly_chart(fig10, use_container_width=True, key="tab2_rolling_window")
     st.caption("**Why:** Zoom in for current quarter/month. Useful for monthly Board/IT reviews.")
+
 # ========== TAB 3: TRAINING & HUMAN RISK ==========
 with tabs[2]:
     st.header("Training, Human Error, and Risk Mitigation")
