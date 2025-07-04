@@ -499,9 +499,11 @@ with tabs[4]:
     df_incidents['Month'] = pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')
     trend_type = df_incidents[df_incidents['IncidentType'].isin(selected_types)]
     trend = trend_type.groupby(['Month','IncidentType']).size().reset_index(name='Count')
+    trend['Month'] = trend['Month'].astype(str)   # <--- Fix here
     fig3 = px.line(trend, x='Month', y='Count', color='IncidentType', title="Incident Type Trend (Monthly)")
     st.plotly_chart(fig3, use_container_width=True)
     st.caption("**For strategic planning:** Is phishing rising? Malware falling? Inform next quarter's plan.")
+
 
     # 4. Incident Type by Detection Channel
     st.subheader("4. Detection Channel per Type")
