@@ -332,7 +332,7 @@ with tabs[2]:
     awareness_score = df_training[df_training['TrainingType']=='Cybersecurity Awareness'].groupby('EmployeeID')['Score'].mean().reset_index()
     incidents_caused = df_incidents.groupby('EmployeeID').size().reset_index(name='IncidentsCaused')
     merged = awareness_score.merge(incidents_caused, on='EmployeeID', how='left').fillna({'IncidentsCaused':0})
-    fig6 = px.scatter(merged, x='Score', y='IncidentsCaused', trendline='ols', title="Awareness Score vs Incidents Caused")
+    fig6 = px.scatter(merged, x='Score', y='IncidentsCaused', title="Awareness Score vs Incidents Caused")
     st.plotly_chart(fig6, use_container_width=True)
     st.caption("**Data-driven:** Higher scores should mean fewer incidents. If not, training is not working.")
 
