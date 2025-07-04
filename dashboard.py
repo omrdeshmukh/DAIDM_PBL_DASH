@@ -888,6 +888,7 @@ with tabs[8]:
         else:
             # Your ML code goes here
             label_encoder = LabelEncoder()
+            label_encoder.fit(df_class['Severity'])
             models, y_test, label_encoder = train_classifiers(df_class, X_cols, 'Severity', label_encoder=label_encoder)
             accs = {name:score for name, (model, score, *_) in models.items()}
             fig2 = px.bar(x=list(accs.keys()), y=list(accs.values()), title="Model Accuracy Comparison")
