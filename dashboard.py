@@ -837,18 +837,63 @@ with tabs[8]:
         st.caption("**Exec:** Focus on clusters with highest incidents/lowest awareness.")
 
     # 3. Classification Model Comparison (Accuracy)
-    st.subheader("3. Incident Severity Prediction Accuracy")
-    X_cols = ['AIResponseTime', 'DepartmentIDIdx', 'RoleIDIdx', 'LocationIdx', 'IncidentTypeIdx', 'Score']
-    df_class = df_inc.dropna(subset=X_cols + ['Severity'])
-    label_encoder = LabelEncoder()
-    if df_class.empty:
-        st.warning("Not enough data for classification.")
+    
+    # --- Assume these dataframes exist as per your data load ---
+    # df_incidents, df_training, df_employees, df_departments, df_roles
+    
+    df_inc = df_incidents.copy()
+    
+    # --- Encode categorical variables safely ---
+    def safe_label_encode(series):
+        le = LabelEncoder()
+        return le.fit_transform(series.astype(str)), le
+    
+    # DepartmentIDIdx
+    df_inc['DepartmentIDIdx'], _ = safe_label_encode(df_inc['DepartmentID'])
+    
+    # RoleIDIdx: join employee role (if EmployeeID present)
+    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_employees.columns:
+        emp_role = df_employees[['EmployeeID', 'RoleID']]
+        df_inc = df_inc.merge(emp_role, on='EmployeeID', how='left', suffixes=('','_emp'))
+        df_inc['RoleIDIdx'], _ = safe_label_encode(df_inc['RoleID'])
+    
+    # LocationIdx: join employee location
+    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_employees.columns:
+        emp_loc = df_employees[['EmployeeID', 'Location']]
+        df_inc = df_inc.merge(emp_loc, on='EmployeeID', how='left', suffixes=('','_emp'))
+        df_inc['LocationIdx'], _ = safe_label_encode(df_inc['Location'])
+    
+    # IncidentTypeIdx
+    df_inc['IncidentTypeIdx'], _ = safe_label_encode(df_inc['IncidentType'])
+    
+    # Score: Join average training score per employee (if available)
+    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_training.columns:
+        avg_score = df_training.groupby('EmployeeID')['Score'].mean().reset_index()
+        df_inc = df_inc.merge(avg_score, on='EmployeeID', how='left', suffixes=('','_train'))
+        df_inc['Score'] = df_inc['Score'].fillna(df_inc['Score'].mean())  # fill NAs with mean or 0
+    
+    # AIResponseTime: create dummy/fallback if not present
+    if 'AIResponseTime' not in df_inc.columns:
+        df_inc['AIResponseTime'] = 0  # or np.nan, or use your own logic
+    
+    # Severity: must exist, check
+    if 'Severity' not in df_inc.columns:
+        st.warning("No 'Severity' column found in incidents data!")
     else:
-        models, y_test, label_encoder = train_classifiers(df_class, X_cols, 'Severity', label_encoder=label_encoder)
-        accs = {name:score for name, (model, score, *_) in models.items()}
-        fig2 = px.bar(x=list(accs.keys()), y=list(accs.values()), title="Model Accuracy Comparison")
-        st.plotly_chart(fig2, use_container_width=True)
-        st.caption("**For Board:** Which AI model predicts severe events best?")
+        # Now you can safely run your ML block:
+        X_cols = ['AIResponseTime', 'DepartmentIDIdx', 'RoleIDIdx', 'LocationIdx', 'IncidentTypeIdx', 'Score']
+        df_class = df_inc.dropna(subset=X_cols + ['Severity'])
+        if df_class.empty:
+            st.warning("Not enough data for classification. Check if columns have values.")
+        else:
+            # Your ML code goes here
+            label_encoder = LabelEncoder()
+            models, y_test, label_encoder = train_classifiers(df_class, X_cols, 'Severity', label_encoder=label_encoder)
+            accs = {name:score for name, (model, score, *_) in models.items()}
+            fig2 = px.bar(x=list(accs.keys()), y=list(accs.values()), title="Model Accuracy Comparison")
+            st.plotly_chart(fig2, use_container_width=True)
+            st.caption("**For Board:** Which AI model predicts severe events best?")
+
 
     # 4. Confusion Matrix (toggle model)
     st.subheader("4. Confusion Matrix")
