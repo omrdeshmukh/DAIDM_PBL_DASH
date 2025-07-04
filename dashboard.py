@@ -183,11 +183,14 @@ with tabs[1]:
     time_gran = st.radio("Select Time Granularity", ["Month", "Week"])
     if time_gran == "Month":
         trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('M')).size()
+        trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
     else:
         trend = df_incidents.groupby(pd.to_datetime(df_incidents['DateReported']).dt.to_period('W')).size()
         trend_df = pd.DataFrame({'Time': trend.index.astype(str), 'Count': trend.values})
-        fig = px.line(trend_df, x='Time', y='Count', markers=True, title=f"Incidents Reported per {time_gran}", labels={'Time': time_gran, 'Count': 'Number of Incidents'})
-    st.plotly_chart(fig, use_container_width=True)
+    
+    fig = px.line(trend_df, x='Time', y='Count', markers=True, title=f"Incidents Reported per {time_gran}", labels={'Time': time_gran, 'Count': 'Number of Incidents'})
+    st.plotly_chart(fig, use_container_width=True, key="tab2_incidents_over_time")
+
     st.caption(f"**Why it matters:** Trends reveal breach campaigns, detection gaps, or changes in staff behavior.")
 
     # 2. Incidents by Day of Week
