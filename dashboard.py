@@ -852,7 +852,7 @@ with tabs[8]:
     df_inc['DepartmentIDIdx'], _ = safe_label_encode(df_inc['DepartmentID'])
     
     # RoleIDIdx: join employee role (if EmployeeID present)
-    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_employees.columns:
+    if 'EmployeeID' in df_inc.columns and 'EmployeeID' in df_emp.columns:
         emp_role = df_employees[['EmployeeID', 'RoleID']]
         df_inc = df_inc.merge(emp_role, on='EmployeeID', how='left', suffixes=('','_emp'))
         df_inc['RoleIDIdx'], _ = safe_label_encode(df_inc['RoleID'])
