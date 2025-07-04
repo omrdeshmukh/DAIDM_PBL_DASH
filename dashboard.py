@@ -350,9 +350,14 @@ with tabs[2]:
     df_type_trend = df_training[df_training['TrainingType'].isin(type_select)].copy()
     df_type_trend['Month'] = pd.to_datetime(df_type_trend['DateCompleted'], errors='coerce').dt.to_period('M')
     type_trend = df_type_trend.groupby(['Month','TrainingType']).size().reset_index(name='Count')
+    
+    # Convert 'Month' from Period to string for Plotly compatibility
+    type_trend['Month'] = type_trend['Month'].astype(str)
+    
     fig7 = px.line(type_trend, x='Month', y='Count', color='TrainingType', title="Trainings Completed by Type (Monthly)")
     st.plotly_chart(fig7, use_container_width=True)
     st.caption("**Management:** Choose focus areas for the next training wave.")
+
 
     # 10. Certification Earned (impact)
     st.subheader("10. Cybersecurity Certifications Earned")
